@@ -1,7 +1,7 @@
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
 
 // ═══════════════════════════════════════════════════════════════
-// 🤖 NEYROX BOT MAX - SISTEMA PRINCIPAL v3.0
+// 🤖 NEYROX BOT MAX - SISTEMA PRINCIPAL v3.0 (FIXED)
 // ═══════════════════════════════════════════════════════════════
 
 import './config.js'
@@ -59,32 +59,52 @@ for (const dir of dirs) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 🔧 SELECCIÓN QR / CÓDIGO
+// 🔧 SELECCIÓN QR / CÓDIGO (CORREGIDO)
 // ═══════════════════════════════════════════════════════════════
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+const rl = readline.createInterface({ 
+  input: process.stdin, 
+  output: process.stdout,
+  terminal: true
+})
+
 const question = (texto) => new Promise((resolver) => rl.question(texto, resolver))
 
-const methodCodeQR = process.argv.includes("qr")
-const methodCode = process.argv.includes("code")
-let opcion
+const methodCodeQR = process.argv.includes("--qr") || process.argv.includes("qr")
+const methodCode = process.argv.includes("--code") || process.argv.includes("code")
+const sessionExists = fs.existsSync(`./${global.config.sessionDir}/creds.json`)
 
-if (methodCodeQR) {
+let opcion = null
+
+// Si ya existe sesión, no preguntar
+if (sessionExists) {
+  console.log(chalk.green('✅ Sesión existente encontrada, conectando...'))
+  opcion = '1' // No importa, usará creds existentes
+} 
+// Si se pasó argumento --qr
+else if (methodCodeQR) {
   opcion = '1'
+  console.log(chalk.yellow('[📱] Modo QR forzado por argumento'))
 }
-
-if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.config.sessionDir}/creds.json`)) {
+// Si se pasó argumento --code
+else if (methodCode) {
+  opcion = '2'
+  console.log(chalk.yellow('[📱] Modo CÓDIGO forzado por argumento'))
+}
+// Si no hay argumentos ni sesión, preguntar al usuario
+else {
   do {
     opcion = await question(
-      chalk.bold.white("Seleccione opción:\n") + 
-      chalk.blueBright("1. QR\n") + 
-      chalk.cyan("2. Código\n") + 
+      chalk.bold.white("Seleccione método de conexión:\n") + 
+      chalk.blueBright("1. Escanear QR\n") + 
+      chalk.cyan("2. Código de emparejamiento (8 dígitos)\n") + 
       chalk.bold.white("▶▶▶ ")
     )
+    
     if (!/^[1-2]$/.test(opcion)) {
-      console.log(chalk.bold.redBright(`✖ Solo 1 o 2`))
+      console.log(chalk.bold.redBright(`❌ Opción inválida. Escribe 1 o 2.`))
     }
-  } while (opcion !== '1' && opcion !== '2' || fs.existsSync(`./${global.config.sessionDir}/creds.json`))
+  } while (!/^[1-2]$/.test(opcion))
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -100,7 +120,7 @@ console.log(chalk.blue(`📦 Baileys v${version.join('.')}`))
 const sock = makeWASocket({
   version,
   logger,
-  printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
+  printQRInTerminal: opcion === '1',
   auth: {
     creds: state.creds,
     keys: makeCacheableSignalKeyStore(state.keys, logger)
@@ -114,48 +134,59 @@ const sock = makeWASocket({
 sock.ev.on('creds.update', saveCreds)
 
 // ═══════════════════════════════════════════════════════════════
-// 📱 MODO CÓDIGO
+// 📱 MODO CÓDIGO (CORREGIDO)
 // ═══════════════════════════════════════════════════════════════
 
-if (!fs.existsSync(`./${global.config.sessionDir}/creds.json`)) {
-  if (opcion === '2' || methodCode) {
-    console.log(chalk.yellow('[⚡] Modo código activado'))
+if (!sessionExists && opcion === '2') {
+  console.log(chalk.yellow('\n[⚡] Modo código activado'))
+  
+  if (!sock.authState.creds.registered) {
+    let phoneNumber = ''
     
-    if (!sock.authState.creds.registered) {
-      let addNumber
-      let phoneNumber = global.botNumber
+    // Pedir número hasta que sea válido
+    do {
+      phoneNumber = await question(
+        chalk.bgBlack(chalk.bold.greenBright(`[📱] Ingresa tu número de WhatsApp:\n`)) +
+        chalk.gray('Formato: 5214183357841 (código país + número)\n▶▶▶ ')
+      )
+      phoneNumber = phoneNumber.replace(/\D/g, '')
       
-      if (!phoneNumber) {
-        do {
-          phoneNumber = await question(chalk.bgBlack(chalk.bold.greenBright(`[📱] Número WhatsApp:\n▶▶▶ `)))
-          phoneNumber = phoneNumber.replace(/\D/g, '')
-        } while (!phoneNumber)
+      // Validación básica: debe tener al menos 10 dígitos
+      if (phoneNumber.length < 10) {
+        console.log(chalk.red('❌ Número inválido. Debe incluir código de país.'))
       }
-      
-      rl.close()
-      addNumber = phoneNumber
+    } while (phoneNumber.length < 10)
 
-      console.log(chalk.cyan('[⏳] Generando código...'))
+    console.log(chalk.cyan('\n[⏳] Solicitando código de emparejamiento...'))
+    
+    try {
+      // Asegurar que no tenga +
+      const cleanNumber = phoneNumber.startsWith('+') ? phoneNumber.slice(1) : phoneNumber
       
-      try {
-        const cleanNumber = addNumber.replace('+', '')
-        let codeBot = await sock.requestPairingCode(cleanNumber)
+      let codeBot = await sock.requestPairingCode(cleanNumber)
+      
+      if (codeBot) {
+        // Formatear código: XXXX-XXXX
+        const formattedCode = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
         
-        if (codeBot) {
-          codeBot = codeBot?.match(/.{1,4}/g)?.join("-") || codeBot
-          console.log(chalk.bold.white(chalk.bgMagenta(`\n═══════════════════════`)))
-          console.log(chalk.bold.white(chalk.bgMagenta(`      📲 CÓDIGO WhatsApp   `)))
-          console.log(chalk.bold.white(chalk.bgMagenta(`═══════════════════════`)))
-          console.log(chalk.bold.white(chalk.bgGreen(`      ${codeBot}      `)))
-        }
-      } catch (error) {
-        console.error(chalk.red(`✖ Error: ${error.message}`))
+        console.log(chalk.bold.white(chalk.bgMagenta(`\n═══════════════════════`)))
+        console.log(chalk.bold.white(chalk.bgMagenta(`   📲 CÓDIGO WHATSAPP   `)))
+        console.log(chalk.bold.white(chalk.bgMagenta(`═══════════════════════`)))
+        console.log(chalk.bold.white(chalk.bgGreen(`     ${formattedCode}     `)))
+        console.log(chalk.bold.white(chalk.bgMagenta(`═══════════════════════`)))
+        console.log(chalk.yellow('\n📱 Abre WhatsApp > Dispositivos vinculados > Vincular'))
+        console.log(chalk.yellow('⏳ El código expira en 2 minutos\n'))
       }
+    } catch (error) {
+      console.error(chalk.red(`\n❌ Error al generar código: ${error.message}`))
+      console.log(chalk.yellow('💡 Intenta con el modo QR: node index.js --qr'))
+      process.exit(1)
     }
-  } else {
-    rl.close()
   }
-} else {
+}
+
+// Cerrar readline solo después de usarlo
+if (rl && !rl.closed) {
   rl.close()
 }
 
@@ -166,8 +197,8 @@ if (!fs.existsSync(`./${global.config.sessionDir}/creds.json`)) {
 sock.ev.on('connection.update', async (update) => {
   const { connection, lastDisconnect, qr } = update
 
-  if (qr) {
-    console.log(chalk.yellow('\n📱 Escanea el QR code arriba\n'))
+  if (qr && opcion === '1') {
+    console.log(chalk.yellow('\n📱 Escanea el QR code que aparece arriba ↑\n'))
   }
 
   if (connection === 'close') {
@@ -178,28 +209,34 @@ sock.ev.on('connection.update', async (update) => {
     console.log(chalk.red('\n❌ Desconectado'))
 
     if (shouldReconnect) {
-      console.log(chalk.yellow('🔄 Reconectando...'))
+      console.log(chalk.yellow('🔄 Reconectando en 3 segundos...'))
       setTimeout(() => process.exit(1), 3000)
+    } else {
+      console.log(chalk.red('🚫 Sesión cerrada. Borra la carpeta sessions y reinicia.'))
+      process.exit(0)
     }
   }
 
   if (connection === 'open') {
     console.log(chalk.greenBright('\n' + '═'.repeat(50)))
-    console.log(chalk.greenBright('  ✅ BOT CONECTADO'))
+    console.log(chalk.greenBright('  ✅ BOT CONECTADO EXITOSAMENTE'))
     console.log(chalk.greenBright('═'.repeat(50) + '\n'))
 
     const user = sock.user
-    console.log(chalk.cyan(`👤 ${user?.name || 'Unknown'}`))
-    console.log(chalk.cyan(`📱 ${user?.id?.split(':')[0] || 'Unknown'}\n`))
+    console.log(chalk.cyan(`👤 Nombre: ${user?.name || 'Unknown'}`))
+    console.log(chalk.cyan(`📱 Número: ${user?.id?.split(':')[0] || 'Unknown'}\n`))
 
     await loadPlugins(sock)
 
+    // Notificar a owners
     for (const owner of global.config.owners) {
       try {
         await sock.sendMessage(owner + '@s.whatsapp.net', {
-          text: `✅ *${global.config.botName}* Max conectado!\n\n📅 ${new Date().toLocaleString()}`
+          text: `✅ *${global.config.botName}* Max conectado!\n\n👤 Usuario: ${user?.name || 'Unknown'}\n📱 Número: ${user?.id?.split(':')[0]}\n📅 ${new Date().toLocaleString()}`
         })
-      } catch {}
+      } catch (e) {
+        console.log(chalk.yellow(`⚠️ No se pudo notificar al owner ${owner}`))
+      }
     }
   }
 })
@@ -216,7 +253,7 @@ sock.ev.on('messages.upsert', async (m) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// 👥 EVENTOS DE GRUPO (delegados a /events/)
+// 👥 EVENTOS DE GRUPO
 // ═══════════════════════════════════════════════════════════════
 
 sock.ev.on('group-participants.update', async (update) => {
@@ -242,9 +279,14 @@ sock.ev.on('groups.update', async (updates) => {
 // 🛑 ERRORES
 // ═══════════════════════════════════════════════════════════════
 
-process.on('uncaughtException', console.error)
-process.on('unhandledRejection', console.error)
+process.on('uncaughtException', (err) => {
+  console.error(chalk.red('❌ Uncaught Exception:'), err)
+})
+
+process.on('unhandledRejection', (err) => {
+  console.error(chalk.red('❌ Unhandled Rejection:'), err)
+})
 
 global.sock = sock
 
-console.log(chalk.cyan('\n⏳ Conectando...\n'))
+console.log(chalk.cyan('\n⏳ Iniciando conexión...\n'))
