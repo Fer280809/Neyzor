@@ -1,4 +1,4 @@
-# 🤖 NEYROX BOT MAX v3.0
+# 🤖 Asta BOT MAX v2.0
 
 **Sistema Completo de WhatsApp Bot Multi-Device**
 
@@ -195,4 +195,4 @@ npm install github:WhiskeySockets/Baileys
 
 MIT - Libre uso y modificación.
 
-**⚡ Powered by Neyrox Bot Max**
+**⚡ Powered by 𝕱𝖊𝖗𝖓𝖆𝖓𝖉𝖔**

@@ -6,18 +6,18 @@ import { fileURLToPath } from "url"
 // ⚡ NEYROX BOT MAX - CONFIGURACIÓN DINÁMICA
 // ═══════════════════════════════════════════════════════════════
 
-// Config base (se puede editar vía comandos)
+// Config base 
 const defaultConfig = {
   // 👑 Propietarios (fijos, no editables)
   owners: ['5214183357841'],
 
-  // 🤖 Configuración del bot (editable)
-  botName: '『 𝓝𝓮𝔂𝓻𝓸𝔁-𝓑𝓸𝓽 』',
-  botVersion: '3.0.0',
-  botDesc: 'Ultra Fast WhatsApp Bot',
+  // 🤖 Configuración del bot 
+  botName: '『𝕬𝖘𝖙𝖆-𝕭𝖔𝖙』',
+  botVersion: '2.0',
+  botDesc: 'Asta-bot mejora tu experiencia en WhatsApp',
   botLogo: './assets/logo.jpg',
 
-  // 🔗 Links (editables)
+  // 🔗 Links
   links: {
     canal: 'https://whatsapp.com/channel/...',
     grupo: 'https://chat.whatsapp.com/...',
@@ -55,10 +55,8 @@ try {
 // Merge configs
 global.config = { ...defaultConfig, ...savedConfig }
 
-// Función para guardar config
 global.saveConfig = async () => {
   const { writeFileSync } = await import('fs')
-  // No guardar owners ni sessionDir (seguridad)
   const toSave = { ...global.config }
   delete toSave.owners
   delete toSave.sessionDir

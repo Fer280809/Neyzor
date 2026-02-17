@@ -1,24 +1,21 @@
 {
-  "name": "neyrox-bot-max",
-  "version": "3.0.0",
-  "description": "🤖 Neyrox Bot Max - Sistema Completo",
+  "name": "Asta-bot",
+  "version": "2.0",
+  "description": "🤖 Asta Bot Premium - Sistema Completo",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js",
-    "qr": "node index.js --qr",
-    "code": "node index.js --code"
+    "dev": "node --watch index.js"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
-    "@napi-rs/canvas": "^0.1.44",
+    "@napi-rs/canvas": "^0.1.43",
     "@whiskeysockets/baileys": "github:WhiskeySockets/Baileys",
     "awesome-phonenumber": "^6.10.0",
     "axios": "^1.7.9",
     "cfonts": "^3.3.0",
     "chalk": "^5.4.1",
-    "crypto-js": "^4.2.0",
     "file-type": "^19.6.0",
     "lodash": "^4.17.21",
     "lowdb": "^7.0.1",
