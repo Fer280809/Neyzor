@@ -17,7 +17,7 @@
 
 ```bash
 # 1. Descomprimir
-cd neyrox-bot-max
+cd asta-prem
 
 # 2. Instalar
 npm install
